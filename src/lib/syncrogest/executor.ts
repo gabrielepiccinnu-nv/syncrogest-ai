@@ -50,6 +50,11 @@ const ENDPOINT_MAP: Partial<Record<SyncrogestToolName, string>> = {
   search_commesse:            'ws_commesse/commesse',
 };
 
+/**
+ * Esegue un tool Syncrogest per nome, applicando le trasformazioni parametri necessarie
+ * prima della chiamata API. Il tool `get_ore_tecnico` è gestito interamente lato server
+ * (aggregazione da più endpoint) e non segue l'ENDPOINT_MAP.
+ */
 export async function executeTool(
   toolName: SyncrogestToolName,
   toolInput: Record<string, unknown>,

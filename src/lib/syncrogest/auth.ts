@@ -4,6 +4,7 @@ import type { LoginResponse } from '../types/syncrogest';
 let cachedToken: string | null = null;
 let tokenExpiry = 0;
 
+/** Restituisce il token di autenticazione Syncrogest, usando la cache se ancora valida (55 min). */
 export async function getAuthToken(): Promise<string> {
   const now = Date.now();
   if (cachedToken && now < tokenExpiry) {

@@ -26,6 +26,11 @@ export interface InterpretResult {
   executedSteps?: ExecutedStep[];
 }
 
+/**
+ * Invia il messaggio utente a Claude Sonnet 4.6 e gestisce il loop agentico.
+ * I tool di lettura (READ_TOOLS) vengono eseguiti automaticamente fino a MAX_AUTO_STEPS.
+ * I tool di scrittura interrompono il loop e tornano un `tool_call` da far confermare all'utente.
+ */
 export async function interpretWithClaude(
   userMessage: string,
   history: HistoryEntry[],
@@ -115,6 +120,7 @@ export async function interpretWithClaude(
   };
 }
 
+/** Costruisce una stringa leggibile che descrive l'operazione che l'AI sta per eseguire, mostrata all'utente prima della conferma. */
 function buildHumanSummary(
   toolName: SyncrogestToolName,
   input: Record<string, unknown>,

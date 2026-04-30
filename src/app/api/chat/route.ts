@@ -3,6 +3,12 @@ import { interpretWithClaude } from '@/lib/ai/claudeClient';
 import { interpretWithDeepSeek } from '@/lib/ai/deepseekClient';
 import type { AIEngine, ChatApiResponse, HistoryEntry } from '@/lib/types/chat';
 
+/**
+ * POST /api/chat
+ * Riceve il messaggio utente, la history e l'engine selezionato.
+ * Delega a interpretWithClaude o interpretWithDeepSeek e normalizza la risposta
+ * in uno dei tre tipi: `preview` (conferma richiesta), `auto_executed`, `text`.
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {

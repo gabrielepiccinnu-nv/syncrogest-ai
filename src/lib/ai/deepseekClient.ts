@@ -22,6 +22,10 @@ interface OpenAIToolCall {
   function: { name: string; arguments: string };
 }
 
+/**
+ * Invia il messaggio utente a DeepSeek Chat (API compatibile OpenAI) e gestisce il loop agentico.
+ * Stessa logica di `interpretWithClaude`: auto-esegue i READ_TOOLS, chiede conferma per i write tool.
+ */
 export async function interpretWithDeepSeek(
   userMessage: string,
   history: HistoryEntry[],

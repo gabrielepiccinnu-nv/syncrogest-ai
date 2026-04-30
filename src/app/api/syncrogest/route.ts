@@ -3,6 +3,11 @@ import { executeTool } from '@/lib/syncrogest/executor';
 import type { SyncrogestToolName } from '@/lib/types/tools';
 import type { ExecuteApiResponse } from '@/lib/types/chat';
 
+/**
+ * POST /api/syncrogest
+ * Riceve il nome del tool e i parametri confermati dall'utente, li esegue tramite `executeTool`
+ * e ritorna il risultato raw dell'API Syncrogest.
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {

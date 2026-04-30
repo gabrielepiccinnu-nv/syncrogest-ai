@@ -10,20 +10,32 @@ import type {
 } from '@/lib/types/chat';
 import type { SyncrogestToolName } from '@/lib/types/tools';
 
+/** Genera un UUID univoco per identificare ogni messaggio nella lista. */
 function uid() {
   return crypto.randomUUID();
 }
 
+/**
+ * Hook principale della chat. Gestisce la lista messaggi, la history per il contesto AI,
+ * l'engine selezionato (claude/deepseek) e lo stato di caricamento.
+ * Espone `sendMessage`, `confirmAction` e `cancelAction` per guidare il flusso conversazionale.
+ */
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [engine, setEngine] = useState<AIEngine>('deepseek');
   const [isLoading, setIsLoading] = useState(false);
 
+  /** Aggiunge un messaggio alla lista senza toccare la history AI. */
   const addMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => [...prev, msg]);
   }, []);
 
+  /**
+   * Invia un messaggio utente a /api/chat. Se l'AI risponde con un tool di scrittura,
+   * aggiunge un messaggio di tipo `ai-preview` (richiede conferma). Altrimenti mostra la risposta
+   * testuale e aggiorna la history per il contesto del turno successivo.
+   */
   const sendMessage = useCallback(
     async (text: string) => {
       addMessage({
@@ -93,6 +105,11 @@ export function useChat() {
     [engine, history, addMessage],
   );
 
+  /**
+   * Conferma ed esegue il tool in preview (POST /api/syncrogest), poi chiama di nuovo
+   * /api/chat per far sintetizzare il risultato dall'AI in linguaggio naturale.
+   * Aggiorna la history con il risultato dell'operazione.
+   */
   const confirmAction = useCallback(
     async (
       messageId: string,
@@ -186,6 +203,7 @@ export function useChat() {
     [addMessage, engine, history],
   );
 
+  /** Annulla un'azione in preview: converte il messaggio `ai-preview` in `ai-cancelled`. */
   const cancelAction = useCallback((messageId: string) => {
     setMessages((prev) =>
       prev.map((m) =>
