@@ -139,7 +139,7 @@ function buildHumanSummary(
       return `Creare intervento per cliente ID ${i.intervento_cliente_id} il ${i.intervento_data}${ora}${commessa}: "${i.intervento_descrizione}"${tecnici}`;
     },
     create_ticket: (i) =>
-      `Aprire un ticket per il cliente ID ${i.id_cliente}: "${i.oggetto}"`,
+      `Aprire un ticket per il cliente ID ${i.id_cliente}: "${i.titolo}"`,
     update_intervento: (i) =>
       `Aggiornare l'intervento #${i.intervento_id}`,
     update_ticket: (i) =>

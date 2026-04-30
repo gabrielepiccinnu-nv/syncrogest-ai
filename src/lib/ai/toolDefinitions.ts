@@ -78,24 +78,25 @@ export const SYNCROGEST_TOOLS: CacheableTool[] = [
       type: 'object' as const,
       properties: {
         id_cliente: { type: 'number', description: 'ID numerico del cliente' },
-        oggetto: { type: 'string', description: 'Titolo/oggetto del ticket' },
+        titolo: { type: 'string', description: 'Titolo/oggetto del ticket' },
         descrizione: { type: 'string', description: 'Descrizione del problema' },
         id_priorita: { type: 'number', description: 'ID priorità' },
         id_stato: { type: 'number', description: 'ID stato iniziale' },
         id_categoria: { type: 'number', description: 'ID categoria' },
       },
-      required: ['id_cliente', 'oggetto', 'descrizione'],
+      required: ['id_cliente', 'titolo', 'descrizione'],
     },
   },
   {
     name: 'update_ticket',
-    description: 'Aggiorna un ticket esistente (stato, priorità, descrizione).',
+    description: 'Aggiorna un ticket esistente (stato, priorità, titolo, descrizione).',
     input_schema: {
       type: 'object' as const,
       properties: {
         id_ticket: { type: 'number', description: 'ID del ticket da aggiornare' },
         id_stato: { type: 'number' },
         id_priorita: { type: 'number' },
+        titolo: { type: 'string', description: 'Titolo/oggetto del ticket' },
         descrizione: { type: 'string' },
         oggetto: { type: 'string' },
       },

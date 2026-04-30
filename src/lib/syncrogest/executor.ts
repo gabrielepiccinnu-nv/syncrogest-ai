@@ -78,6 +78,14 @@ export async function executeTool(
     }
   }
 
+  // create_ticket / update_ticket: l'API si aspetta `titolo`, il tool usa `oggetto`
+  if (toolName === 'create_ticket' || toolName === 'update_ticket') {
+    if (body.oggetto !== undefined) {
+      body.titolo = body.oggetto;
+      delete body.oggetto;
+    }
+  }
+
   // search_clienti: passa il nome come parametro "find"
   if (toolName === 'search_clienti' && body.query) {
     body.find = body.query;
