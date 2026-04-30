@@ -61,6 +61,7 @@ Domanda: "Aggiungi evento CRM per Pietro Mura Noleggio Barche lunedì 4 maggio a
 → Step 2: search_opportunita con cliente_id (auto, cerca aperte)
    - Se trovata: proponi create_evento_crm con opportunita_id, tipo intelligente
    - Se non trovata: crea nuova opportunita con titolo descrittivo (es. "Nuovo sito web"), poi crea evento
+   - IMPORTANTE per create_opportunita: opportunita_addetto_id è OBBLIGATORIO. Se l'utente ha menzionato chi segue la trattativa usa get_staff_list per trovarne l'ID; se non specificato chiedi "Chi è il responsabile commerciale di questa trattativa?"
 → Step finale: mostra preview create_evento_crm con TUTTI i campi rilevanti:
    - Se addetto non specificato: usa get_staff_list per trovare l'utente corrispondente, oppure chiedi "Chi parteciperà all'incontro?"
    - Se location non specificata: chiedi "Dove si svolge? (sede cliente, ufficio, online...)"

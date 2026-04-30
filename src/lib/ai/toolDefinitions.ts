@@ -383,8 +383,9 @@ export const SYNCROGEST_TOOLS: CacheableTool[] = [
         opportunita_titolo: { type: 'string', description: 'Titolo/descrizione opportunità (obbligatorio)' },
         opportunita_fonte_id: { type: 'string', description: 'Fonte (PASSAPAROLA, SITO WEB, etc.)' },
         opportunita_descrizione: { type: 'string', description: 'Descrizione dettagliata' },
+        opportunita_addetto_id: { type: 'number', description: 'ID utente responsabile della trattativa (obbligatorio — usare get_staff_list se non noto)' },
       },
-      required: ['opportunita_cliente_id', 'opportunita_titolo'],
+      required: ['opportunita_cliente_id', 'opportunita_titolo', 'opportunita_addetto_id'],
     },
   },
   {

@@ -1,6 +1,7 @@
 import { SyncrogestClient } from './client';
 import { getAuthToken } from './auth';
 import type { SyncrogestToolName } from '../types/tools';
+import { READ_TOOLS } from '../ai/readTools';
 
 const ENDPOINT_MAP: Partial<Record<SyncrogestToolName, string>> = {
   // ws_common
@@ -276,5 +277,18 @@ export async function executeTool(
   }
 
   if (!endpoint) throw new Error(`Nessun endpoint per il tool: ${toolName}`);
-  return client.post(endpoint, body);
+
+  const result = await client.post<Record<string, unknown>>(endpoint, body);
+
+  // Write tools segnalano fallimenti con status_code !== 1 (es. false, 0).
+  // I read tool non vengono controllati perché empty results possono avere status variabili.
+  if (!READ_TOOLS.has(toolName)) {
+    const sc = result.status_code;
+    if (sc !== undefined && sc !== 1 && sc !== true) {
+      const msg = typeof result.message === 'string' ? result.message : undefined;
+      throw new Error(msg ?? `Operazione non riuscita (${toolName})`);
+    }
+  }
+
+  return result;
 }
