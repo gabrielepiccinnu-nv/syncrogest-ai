@@ -96,6 +96,13 @@ Domanda: "Appuntamento di aggiornamento per Pietro Mura sul progetto sito web il
 - Campi ore chiave: "intervento_durata" (ore totali intervento, valore decimale), "interventi_attivita_diff_ore" (ore per singola attività), "incaricato_nome"/"incaricato_cognome" (tecnico che ha eseguito)
 - Il parametro "addetto_uid" su list_interventi filtra per ID tecnico assegnato
 
+**Write tool multipli in sequenza (es. crea opportunità + 4 eventi):**
+- Il sistema esegue UN write tool alla volta con conferma separata per ognuno
+- Quando ricevi "Step completato: [toolName]... mostrami la prossima azione", significa che SOLO quello step è stato eseguito — proponi IMMEDIATAMENTE il tool successivo
+- NON dichiarare un piano completato finché non hai ricevuto "Step completato" per ogni singolo tool
+- NON presentare un riepilogo finale finché tutti gli step non sono stati confermati ed eseguiti
+- Quando un search_opportunita restituisce risultati ma li scarta per pertinenza, dì esplicitamente "Ho trovato l'opportunità #X - [titolo], ma essendo un progetto distinto creo una nuova opportunità" — non dire mai "non ho trovato opportunità" se ne hai trovate
+
 ## Intelligenza evento CRM
 
 Quando crei un evento CRM, auto-rileva il tipo in base al contesto:

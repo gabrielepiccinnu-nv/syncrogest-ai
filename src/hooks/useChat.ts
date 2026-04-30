@@ -106,9 +106,10 @@ export function useChat() {
   );
 
   /**
-   * Conferma ed esegue il tool in preview (POST /api/syncrogest), poi chiama di nuovo
-   * /api/chat per far sintetizzare il risultato dall'AI in linguaggio naturale.
-   * Aggiorna la history con il risultato dell'operazione.
+   * Conferma ed esegue il tool in preview (POST /api/syncrogest), poi riprende il loop
+   * agentico per continuare piani multi-step (es. crea opportunità → crea 4 eventi).
+   * Se l'AI ha altri write tool da eseguire restituisce una nuova preview; altrimenti
+   * produce il riepilogo finale in testo.
    */
   const confirmAction = useCallback(
     async (
@@ -143,38 +144,56 @@ export function useChat() {
         const data = (await resp.json()) as ExecuteApiResponse;
         const resultJson = JSON.stringify(data.success ? data.data : { errore: data.error });
 
-        const historyWithResult: HistoryEntry[] = [
-          ...currentHistory,
-          {
-            role: 'assistant',
-            content: `Ho eseguito il tool ${toolName} con input ${JSON.stringify(toolInput)}. Risultato API: ${resultJson}`,
-          },
-        ];
+        // Resume the agentic loop: feed the tool result back and let the AI decide
+        // whether to proceed with the next step or produce a final summary.
+        const continuationMessage = data.success
+          ? `Step completato: ${toolName} eseguito con successo. Risultato: ${resultJson}\n\nSe il piano originale prevedeva altri step (es. creare eventi dopo l'opportunità), mostrami subito la prossima azione da confermare. Altrimenti presenta il riepilogo finale di tutto quanto realizzato.`
+          : `L'operazione ${toolName} ha restituito un errore: ${data.error}. Informa l'utente di quanto accaduto.`;
 
-        // Call AI to interpret the tool result
-        const interpretResp = await fetch('/api/chat', {
+        const continuationResp = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            message: 'Presenta in modo chiaro e sintetico i risultati ottenuti, evidenziando le informazioni più rilevanti.',
+            message: continuationMessage,
             engine: currentEngine,
-            history: historyWithResult,
+            history: currentHistory,
           }),
         });
 
-        const interpretData = (await interpretResp.json()) as ChatApiResponse;
+        const continuationData = (await continuationResp.json()) as ChatApiResponse;
 
-        if (interpretData.type === 'text' && interpretData.text) {
+        if (continuationData.type === 'preview' && continuationData.toolName && continuationData.toolInput) {
+          // AI has another write operation — chain it as a new preview
+          addMessage({
+            id: uid(),
+            type: 'ai-preview',
+            role: 'assistant',
+            toolName: continuationData.toolName,
+            toolInput: continuationData.toolInput,
+            humanSummary: continuationData.humanSummary ?? '',
+            timestamp: new Date(),
+          });
+          // Persist the tool result in history so the next confirmAction has full context
+          setHistory([
+            ...currentHistory,
+            { role: 'user', content: continuationMessage },
+          ]);
+        } else if (
+          (continuationData.type === 'text' || continuationData.type === 'auto_executed') &&
+          continuationData.text
+        ) {
+          const content = continuationData.text;
           addMessage({
             id: uid(),
             type: 'ai-text',
             role: 'assistant',
-            content: interpretData.text,
+            content,
             timestamp: new Date(),
           });
           setHistory([
-            ...historyWithResult,
-            { role: 'assistant', content: interpretData.text },
+            ...currentHistory,
+            { role: 'user', content: continuationMessage },
+            { role: 'assistant', content },
           ]);
         } else {
           // Fallback: show raw result
@@ -186,7 +205,10 @@ export function useChat() {
             result: data.success ? data.data : { errore: data.error },
             timestamp: new Date(),
           });
-          setHistory(historyWithResult);
+          setHistory([
+            ...currentHistory,
+            { role: 'user', content: continuationMessage },
+          ]);
         }
       } catch {
         addMessage({
