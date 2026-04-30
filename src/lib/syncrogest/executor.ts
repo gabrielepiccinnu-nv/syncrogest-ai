@@ -290,5 +290,30 @@ export async function executeTool(
     }
   }
 
+  // Dopo create_opportunita, recupera l'opportunità appena creata per esporre l'opportunita_id
+  // reale (visibile nella UI Syncrogest), che è diverso da inserted_id (ID interno del DB).
+  // L'AI deve usare opportunita_id dalla search per i successivi create_evento_crm.
+  if (toolName === 'create_opportunita') {
+    const clienteId = toolInput.opportunita_cliente_id as number;
+    const titolo = toolInput.opportunita_titolo as string;
+    try {
+      const search = await client.post<Record<string, unknown>>('ws_opportunita/opportunities', {
+        token_uid: token,
+        cliente_id: clienteId,
+      });
+      const lista = (search as { data?: { lista?: Record<string, unknown>[] } }).data?.lista ?? [];
+      const nuova = lista.find(
+        (o) => o.opportunita_titolo === titolo || String(o.opportunita_id) === String(result.data && (result.data as Record<string, unknown>).inserted_id),
+      );
+      return {
+        ...result,
+        opportunita_creata: nuova ?? lista[0] ?? null,
+        _nota: 'Usa opportunita_creata.opportunita_id (non inserted_id) per create_evento_crm',
+      };
+    } catch {
+      // fallback: ritorna solo il risultato originale
+    }
+  }
+
   return result;
 }

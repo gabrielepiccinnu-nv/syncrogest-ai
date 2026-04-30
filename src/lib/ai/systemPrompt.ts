@@ -62,6 +62,7 @@ Domanda: "Aggiungi evento CRM per Pietro Mura Noleggio Barche lunedì 4 maggio a
    - Se trovata: proponi create_evento_crm con opportunita_id, tipo intelligente
    - Se non trovata: crea nuova opportunita con titolo descrittivo (es. "Nuovo sito web"), poi crea evento
    - IMPORTANTE per create_opportunita: opportunita_addetto_id è OBBLIGATORIO. Se l'utente ha menzionato chi segue la trattativa usa get_staff_list per trovarne l'ID; se non specificato chiedi "Chi è il responsabile commerciale di questa trattativa?"
+   - CRITICO dopo create_opportunita: il risultato include un campo `opportunita_creata` con l'opportunità appena creata. Usa SEMPRE `opportunita_creata.opportunita_id` per il successivo create_evento_crm — NON usare `inserted_id` che è l'ID interno del DB e NON corrisponde all'opportunita_id usato dall'API.
 → Step finale: mostra preview create_evento_crm con TUTTI i campi rilevanti:
    - Se addetto non specificato: usa get_staff_list per trovare l'utente corrispondente, oppure chiedi "Chi parteciperà all'incontro?"
    - Se location non specificata: chiedi "Dove si svolge? (sede cliente, ufficio, online...)"
