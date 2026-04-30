@@ -17,18 +17,64 @@ Assistente conversazionale per la gestione del gestionale Syncrogest. Permette d
 - Dual AI engine: Claude (ragionamento avanzato) o DeepSeek (alternativa economica)
 - Sintesi risultati in linguaggio naturale, niente JSON raw
 
+## Casi d'uso supportati
+
+### Clienti
+- Cercare clienti per nome o ragione sociale
+- Elencare tutti i clienti (con paginazione)
+- Recuperare gli interventi di un cliente (multi-step: ricerca cliente → lista interventi filtrata per ID)
+
+### Interventi (Ordini di Lavoro)
+- Elencare interventi per data, cliente, tecnico o stato
+- Creare nuovi interventi con data, fasce orarie, luogo e tecnici assegnati
+- Aggiornare interventi esistenti (data, stato, descrizione, orari, tecnici)
+- Aggiungere attività (ore lavorate) — richiede il tipo attività dal catalogo Syncrogest
+- Aggiungere prodotti/materiali — richiede l'ID prodotto dal catalogo Syncrogest
+- Chiudere interventi con note di chiusura opzionali
+- Generare il PDF del rapporto di intervento
+- Inviare il rapporto via email al cliente
+
+### Ticket
+- Elencare ticket per stato, priorità o cliente
+- Creare nuovi ticket con oggetto, descrizione, priorità e categoria
+- Aggiungere note pubbliche (visibili al cliente) o interne
+- Aggiornare stato, priorità e descrizione di un ticket
+
+### Preventivi
+- Cercare preventivi per numero documento o cliente
+- Visualizzare i dettagli completi di un preventivo
+- Generare il PDF di un preventivo
+- Cambiare stato (es. da "In attesa" a "Accettato") — richiede prima la lista stati disponibili
+
+### Calendario
+- Visualizzare appuntamenti e interventi in un intervallo di date
+
+### CRM / Opportunità
+- Cercare opportunità commerciali aperte per cliente
+- Creare nuove trattative/opportunità collegate a un cliente
+- Creare eventi CRM sull'opportunità: MEETING, CALL, QUOTE, EMAIL, REMIND
+- Visualizzare lo storico eventi di un'opportunità
+- **Limite**: gli eventi CRM non sono modificabili dopo la creazione (nessun endpoint update nell'API Syncrogest)
+
+### Commesse / Progetti
+- Cercare commesse attive per cliente (usato per collegare interventi a un progetto esistente)
+
+### Personale
+- Elencare i tecnici disponibili con i loro ID
+- Calcolare le ore totali lavorate da un tecnico in un periodo, con dettaglio per intervento
+
 ## API Syncrogest coperte
 
 | Modulo | Operazioni principali |
 |---|---|
-| `ws_common` | Calendario, ricerca clienti, info azienda |
-| `ws_ticket` | Lista, crea, aggiorna ticket; note, stati, priorità, categorie |
-| `ws_interventi` | Lista, crea, aggiorna, chiudi interventi; attività, prodotti, staff, PDF, email |
-| `ws_preventivi` | Cerca, visualizza, cambia stato, genera PDF |
-| `ws_opportunita` | Cerca opportunità CRM, crea trattative ed eventi (MEETING, CALL, QUOTE, EMAIL) |
+| `ws_common` | Calendario, ricerca clienti, lista clienti, info azienda |
+| `ws_ticket` | Lista, crea, aggiorna ticket; note pubbliche/interne, stati, priorità, categorie |
+| `ws_interventi` | Lista, crea, aggiorna, chiudi; attività, prodotti, staff, PDF, email; ore tecnico |
+| `ws_preventivi` | Cerca, dettagli, cambia stato, genera PDF |
+| `ws_opportunita` | Cerca, crea opportunità; crea eventi CRM (MEETING/CALL/QUOTE/EMAIL); storico eventi |
 | `ws_commesse` | Ricerca commesse per cliente |
 
-40+ tool definitions mappati su endpoint Syncrogest.
+49 tool definitions mappati su endpoint Syncrogest.
 
 ## Struttura
 
@@ -53,13 +99,13 @@ src/
     ├── ai/
     │   ├── claudeClient.ts        # Client Claude con prompt caching
     │   ├── deepseekClient.ts      # Client DeepSeek (formato OpenAI-compat)
-    │   ├── toolDefinitions.ts     # 40+ tool definitions
-    │   ├── readTools.ts           # Set tool auto-eseguibili
+    │   ├── toolDefinitions.ts     # Tool definitions
+    │   ├── readTools.ts           # Set tool auto-eseguibili senza conferma
     │   └── systemPrompt.ts        # System prompt con pattern multi-step
     ├── syncrogest/
     │   ├── auth.ts                # Login + token cache 55min
     │   ├── client.ts              # HTTP client base
-    │   └── executor.ts            # Mappatura tool → endpoint + trasformazioni
+    │   └── executor.ts            # Mappatura tool → endpoint + trasformazioni parametri
     └── types/
         ├── chat.ts
         ├── syncrogest.ts
@@ -79,11 +125,10 @@ cp .env.example .env.local
 ```
 
 ```env
-ANTHROPIC_API_KEY=      # Per Claude
-DEEPSEEK_API_KEY=       # Per DeepSeek
+ANTHROPIC_API_KEY=      # Per Claude Sonnet
+DEEPSEEK_API_KEY=       # Per DeepSeek Chat
 
-WP_API_KEY=             # Syncrogest WebSocket API key
-WS_API_KEY=             # Syncrogest WS API key
+WS_API_KEY=             # Syncrogest WS-API-KEY (header autenticazione API)
 
 SYNCROGEST_USERNAME=    # Credenziali accesso Syncrogest
 SYNCROGEST_PASSWORD=
@@ -111,7 +156,7 @@ Utente → messaggio in italiano
 ## Note tecniche
 
 - Il system prompt è cachato (Claude prompt caching) per ridurre latency e costi
-- La data odierna è iniettata nel messaggio, non nel system prompt cachato
+- La data odierna è iniettata nel messaggio, non nel system prompt cachato, per non invalidare la cache
 - Il token Syncrogest viene cachato lato server per 55 minuti
-- `get_ore_tecnico` aggrega le ore tecnico da più chiamate API
-- Operazioni scrittura richiedono sempre conferma esplicita dall'utente
+- `get_ore_tecnico` è implementato lato server: aggrega ore da attività embedded negli interventi o, in fallback, da chiamate separate a `attivita_intervento`
+- Operazioni di scrittura richiedono sempre conferma esplicita dell'utente prima dell'esecuzione
