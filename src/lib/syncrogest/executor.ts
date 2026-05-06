@@ -42,6 +42,7 @@ const ENDPOINT_MAP: Partial<Record<SyncrogestToolName, string>> = {
   get_preventivo_pdf:         'ws_documenti/documento',
   cambia_stato_preventivo:    'ws_documenti/cambia_stato',
   get_stati_preventivi:       'ws_documenti/stati',
+  create_preventivo:          'ws_documenti/insert_documento',
   // ws_opportunita (CRM)
   search_opportunita:         'ws_opportunita/opportunities',
   get_eventi_opportunita:     'ws_opportunita/eventi',
@@ -131,6 +132,26 @@ export async function executeTool(
   // get_stati_preventivi: richiede tipo_doc
   if (toolName === 'get_stati_preventivi') {
     body.tipo_doc = 'preventivi';
+  }
+
+  // create_preventivo: imposta tipo documento, converte data e normalizza righe
+  if (toolName === 'create_preventivo') {
+    body.tipo_doc = 'preventivi';       // convenzione ws_documenti per list/stato
+    body.documento_tipo = 'PREVENTIVO'; // campo nel body del documento
+    body.documento_lang = 'it';         // campo sempre presente nelle risposte, potenzialmente obbligatorio
+    if (typeof body.documento_data === 'string' && body.documento_data.includes('/')) {
+      const [d, m, y] = (body.documento_data as string).split('/');
+      body.documento_data = `${y}-${m}-${d}`;
+    }
+    if (Array.isArray(body.righe)) {
+      body.righe = (body.righe as Record<string, unknown>[]).map((r, i) => ({
+        riga_dett_qta: 1,
+        riga_dett_perc_iva: 22,
+        riga_dett_sconto: 0,
+        riga_dett_rank: (i + 1) * 10,
+        ...r,
+      }));
+    }
   }
 
   // create_evento_crm: normalizza formato ora e rinomina campo location
@@ -296,6 +317,25 @@ export async function executeTool(
       const msg = typeof result.message === 'string' ? result.message : undefined;
       throw new Error(msg ?? `Operazione non riuscita (${toolName})`);
     }
+  }
+
+  // Dopo create_preventivo, recupera il preventivo appena creato per esporre fattura_id/numero.
+  // L'API restituisce documento_id: null nella risposta immediata; la search lo trova per oggetto.
+  if (toolName === 'create_preventivo') {
+    const doc = (result as { data?: { documento?: Record<string, unknown> } }).data?.documento;
+    if (doc && !doc.documento_id) {
+      try {
+        const search = await client.post<Record<string, unknown>>('ws_preventivi/preventivi', {
+          token_uid: token,
+          num: 5,
+        });
+        const lista = (search as { data?: { preventivi?: Record<string, unknown>[] } }).data?.preventivi ?? [];
+        const oggetto = toolInput.documento_oggetto as string;
+        const found = lista.find((p) => p.fattura_oggetto === oggetto) ?? lista[0];
+        return { ...result, preventivo_creato: found ?? null };
+      } catch { /* fallback: ritorna solo il risultato originale */ }
+    }
+    return result;
   }
 
   // Dopo create_opportunita, recupera l'opportunità appena creata per esporre l'opportunita_id

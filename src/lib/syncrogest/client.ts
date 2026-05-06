@@ -26,6 +26,7 @@ export class SyncrogestClient {
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
+      console.error(`[Syncrogest] HTTP ${response.status} on ${endpoint}`, { body: JSON.stringify(body).slice(0, 500), response: text.slice(0, 500) });
       throw new Error(`Syncrogest HTTP ${response.status} on ${endpoint}: ${text}`);
     }
 

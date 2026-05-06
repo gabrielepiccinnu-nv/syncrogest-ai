@@ -508,5 +508,35 @@ export const SYNCROGEST_TOOLS: CacheableTool[] = [
     input_schema: { type: 'object' as const, properties: {}, required: [] },
     cache_control: { type: 'ephemeral' },
   },
+  {
+    name: 'create_preventivo',
+    description:
+      'Crea un nuovo preventivo in bozza per un cliente. Richiede ID cliente (usare search_clienti se non noto), oggetto, data e righe di dettaglio con descrizione/prezzo.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        documento_anagrafica_id: { type: 'number', description: 'ID numerico del cliente' },
+        documento_oggetto: { type: 'string', description: 'Oggetto / titolo del preventivo' },
+        documento_data: { type: 'string', description: 'Data del preventivo in formato dd/MM/yyyy' },
+        documento_note: { type: 'string', description: 'Note aggiuntive (opzionale)' },
+        righe: {
+          type: 'array',
+          description: 'Righe del preventivo',
+          items: {
+            type: 'object',
+            properties: {
+              riga_dett_desc:     { type: 'string', description: 'Descrizione della voce' },
+              riga_dett_qta:      { type: 'number', description: 'Quantità (default 1)' },
+              riga_dett_importo:  { type: 'number', description: 'Prezzo unitario imponibile' },
+              riga_dett_perc_iva: { type: 'number', description: 'Aliquota IVA % (default 22)' },
+              riga_dett_sconto:   { type: 'number', description: 'Sconto % (opzionale, default 0)' },
+            },
+            required: ['riga_dett_desc', 'riga_dett_importo'],
+          },
+        },
+      },
+      required: ['documento_anagrafica_id', 'documento_oggetto', 'documento_data', 'righe'],
+    },
+  },
 ];
 

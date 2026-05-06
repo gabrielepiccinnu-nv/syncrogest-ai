@@ -208,6 +208,13 @@ function buildHumanSummary(
     },
     search_commesse: (i) =>
       `Cercare commesse (progetti) per cliente ID ${i.cliente_id}`,
+    create_preventivo: (i) => {
+      const righe = Array.isArray(i.righe)
+        ? (i.righe as { riga_dett_desc: string; riga_dett_importo: number; riga_dett_qta?: number }[])
+        : [];
+      const totale = righe.reduce((s, r) => s + (r.riga_dett_importo ?? 0) * (r.riga_dett_qta ?? 1), 0);
+      return `Creare preventivo "${i.documento_oggetto}" per cliente ID ${i.documento_anagrafica_id} il ${i.documento_data} — ${righe.length} voce/i, imponibile totale €${totale.toFixed(2)}`;
+    },
   };
 
   const fn = summaries[toolName];

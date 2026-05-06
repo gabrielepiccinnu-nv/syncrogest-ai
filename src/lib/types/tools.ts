@@ -39,6 +39,7 @@ export type SyncrogestToolName =
   | 'get_preventivo_pdf'
   | 'cambia_stato_preventivo'
   | 'get_stati_preventivi'
+  | 'create_preventivo'
   // ws_opportunita (CRM)
   | 'search_opportunita'
   | 'create_opportunita'
