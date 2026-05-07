@@ -46,7 +46,17 @@ export type SyncrogestToolName =
   | 'create_evento_crm'
   | 'get_eventi_opportunita'
   // ws_commesse (Projects)
-  | 'search_commesse';
+  | 'search_commesse'
+  | 'get_commessa'
+  // ws_prodotti
+  | 'search_prodotti'
+  // ws_contatti
+  | 'get_contatti_cliente'
+  // ws_impianti
+  | 'list_impianti'
+  | 'get_impianto'
+  // ws_opportunita extra
+  | 'get_tipologie_evento_crm';
 
 export interface ToolCallResult {
   toolName: SyncrogestToolName;

@@ -50,6 +50,16 @@ const ENDPOINT_MAP: Partial<Record<SyncrogestToolName, string>> = {
   create_evento_crm:          'ws_opportunita/save_evento',
   // ws_commesse (Projects)
   search_commesse:            'ws_commesse/commesse',
+  get_commessa:               'ws_commesse/commessa',
+  // ws_prodotti
+  search_prodotti:            'ws_prodotti/prodotti',
+  // ws_contatti
+  get_contatti_cliente:       'ws_contatti/contatti',
+  // ws_impianti
+  list_impianti:              'ws_impianti/impianti',
+  get_impianto:               'ws_impianti/impianto',
+  // ws_opportunita extra
+  get_tipologie_evento_crm:   'ws_opportunita/tipologie_evento',
 };
 
 /**
@@ -184,6 +194,24 @@ export async function executeTool(
     if (!body.stato_id) {
       body.filtro_stato = 'APERTA'; // default: only open opportunities
     }
+  }
+
+  // search_prodotti: rinomina query → find, default num
+  if (toolName === 'search_prodotti') {
+    if (body.query) { body.find = body.query; delete body.query; }
+    if (!body.num) body.num = 20;
+  }
+
+  // get_contatti_cliente: rinomina cliente_id → anagrafica_id
+  if (toolName === 'get_contatti_cliente' && body.cliente_id) {
+    body.anagrafica_id = body.cliente_id;
+    delete body.cliente_id;
+  }
+
+  // list_impianti: rinomina cliente_id → anagrafica_id
+  if (toolName === 'list_impianti') {
+    if (body.cliente_id) { body.anagrafica_id = body.cliente_id; delete body.cliente_id; }
+    if (!body.num) body.num = 50;
   }
 
   // search_commesse: di default mostra solo commesse attive

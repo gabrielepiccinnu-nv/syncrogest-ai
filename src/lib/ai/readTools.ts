@@ -11,4 +11,9 @@ export const READ_TOOLS = new Set<SyncrogestToolName>([
   'search_preventivi', 'get_preventivo', 'get_stati_preventivi',
   'get_ore_tecnico',
   'search_opportunita', 'get_eventi_opportunita', 'search_commesse',
+  'get_commessa',
+  'search_prodotti',
+  'get_contatti_cliente',
+  'list_impianti', 'get_impianto',
+  'get_tipologie_evento_crm',
 ]);

@@ -208,6 +208,18 @@ function buildHumanSummary(
     },
     search_commesse: (i) =>
       `Cercare commesse (progetti) per cliente ID ${i.cliente_id}`,
+    get_commessa: (i) =>
+      `Recuperare i dettagli della commessa #${i.commessa_id}`,
+    search_prodotti: (i) =>
+      `Cercare prodotti/servizi${i.query ? ` per "${i.query}"` : ''}`,
+    get_contatti_cliente: (i) =>
+      `Recuperare i contatti del cliente ID ${i.cliente_id}`,
+    list_impianti: (i) =>
+      `Recuperare gli impianti${i.cliente_id ? ` del cliente ID ${i.cliente_id}` : ''}`,
+    get_impianto: (i) =>
+      `Recuperare i dettagli dell'impianto #${i.impianto_id}`,
+    get_tipologie_evento_crm: () =>
+      'Recuperare le tipologie di evento CRM disponibili',
     create_preventivo: (i) => {
       const righe = Array.isArray(i.righe)
         ? (i.righe as { riga_dett_desc: string; riga_dett_importo: number; riga_dett_qta?: number }[])

@@ -508,35 +508,83 @@ export const SYNCROGEST_TOOLS: CacheableTool[] = [
     input_schema: { type: 'object' as const, properties: {}, required: [] },
     cache_control: { type: 'ephemeral' },
   },
+  // TODO: create_preventivo — ws_documenti/insert_documento ritorna status_code 20 per questo account.
+  // Riabilitare qui (e in tools.ts, executor.ts, claudeClient.ts, systemPrompt.ts) quando
+  // Syncrogest abilita la funzione. Contattare supporto Syncrogest per abilitazione.
+
+  // ws_commesse
   {
-    name: 'create_preventivo',
-    description:
-      'Crea un nuovo preventivo in bozza per un cliente. Richiede ID cliente (usare search_clienti se non noto), oggetto, data e righe di dettaglio con descrizione/prezzo.',
+    name: 'get_commessa',
+    description: 'Recupera i dettagli completi di una commessa/progetto, incluse ore totali, ore usate e ore residue. Usare quando l\'utente chiede dettagli su un progetto specifico.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        documento_anagrafica_id: { type: 'number', description: 'ID numerico del cliente' },
-        documento_oggetto: { type: 'string', description: 'Oggetto / titolo del preventivo' },
-        documento_data: { type: 'string', description: 'Data del preventivo in formato dd/MM/yyyy' },
-        documento_note: { type: 'string', description: 'Note aggiuntive (opzionale)' },
-        righe: {
-          type: 'array',
-          description: 'Righe del preventivo',
-          items: {
-            type: 'object',
-            properties: {
-              riga_dett_desc:     { type: 'string', description: 'Descrizione della voce' },
-              riga_dett_qta:      { type: 'number', description: 'Quantità (default 1)' },
-              riga_dett_importo:  { type: 'number', description: 'Prezzo unitario imponibile' },
-              riga_dett_perc_iva: { type: 'number', description: 'Aliquota IVA % (default 22)' },
-              riga_dett_sconto:   { type: 'number', description: 'Sconto % (opzionale, default 0)' },
-            },
-            required: ['riga_dett_desc', 'riga_dett_importo'],
-          },
-        },
+        commessa_id: { type: 'number', description: 'ID numerico della commessa' },
       },
-      required: ['documento_anagrafica_id', 'documento_oggetto', 'documento_data', 'righe'],
+      required: ['commessa_id'],
     },
+  },
+
+  // ws_prodotti
+  {
+    name: 'search_prodotti',
+    description: 'Cerca prodotti nel catalogo per nome o codice. Usare quando l\'utente vuole aggiungere un prodotto a un intervento o chiede il prezzo di un articolo.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string', description: 'Nome, codice o descrizione del prodotto' },
+        categoria_id: { type: 'number', description: 'Filtra per categoria (opzionale)' },
+        num: { type: 'number', description: 'Numero risultati (default 20)' },
+      },
+      required: ['query'],
+    },
+  },
+
+  // ws_contatti
+  {
+    name: 'get_contatti_cliente',
+    description: 'Recupera i contatti (referenti) di un cliente. Usare quando serve trovare il nome, email o telefono di un referente aziendale.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        cliente_id: { type: 'number', description: 'ID numerico del cliente' },
+      },
+      required: ['cliente_id'],
+    },
+  },
+
+  // ws_impianti
+  {
+    name: 'list_impianti',
+    description: 'Lista gli impianti/apparecchiature di un cliente o dell\'azienda. Usare quando l\'utente chiede "quali impianti ha il cliente X" o "cerca impianto".',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        cliente_id: { type: 'number', description: 'Filtra per cliente (opzionale)' },
+        find: { type: 'string', description: 'Ricerca per nome o matricola (opzionale)' },
+        num: { type: 'number', description: 'Numero risultati (default 50)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_impianto',
+    description: 'Recupera i dettagli completi di un impianto: garanzia, prodotti installati, cliente, sede.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        impianto_id: { type: 'number', description: 'ID numerico dell\'impianto' },
+      },
+      required: ['impianto_id'],
+    },
+  },
+
+  // ws_opportunita extra
+  {
+    name: 'get_tipologie_evento_crm',
+    description: 'Recupera la lista dei tipi di evento CRM disponibili (es. MEETING, CALL, QUOTE). Usare per mostrare le opzioni disponibili all\'utente.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+    cache_control: { type: 'ephemeral' },
   },
 ];
 
