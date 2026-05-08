@@ -196,6 +196,37 @@ export async function executeTool(
     }
   }
 
+  // add_activity_to_intervento: mappa campi user-friendly → API (interventi_attivita_*)
+  if (toolName === 'add_activity_to_intervento') {
+    body.interventi_attivita_intervento_id = body.intervento_id;
+    body.interventi_attivita_titolo        = body.titolo ?? 'Lavoro';
+    body.interventi_attivita_data          = body.data;
+    body.interventi_attivita_dalle_ore     = body.dalle_ore ?? '09:00';
+    if (body.alle_ore)    body.interventi_attivita_alle_ore    = body.alle_ore;
+    if (body.descrizione) body.interventi_attivita_descrizione = body.descrizione;
+    body.interventi_attivita_incaricato_id = body.incaricato_id;
+    // Converti ore+minuti → formato "HH.MM" usato dall'API
+    const h = Number(body.ore ?? 0);
+    const m = Number(body.minuti ?? 0);
+    body.interventi_attivita_durata = `${String(h).padStart(2, '0')}.${String(m).padStart(2, '0')}`;
+    // Rimuovi campi user-friendly
+    for (const f of ['intervento_id','titolo','data','dalle_ore','alle_ore','ore','minuti','incaricato_id','descrizione']) {
+      delete body[f];
+    }
+  }
+
+  // list_interventi: default num, smart range se nessun filtro specificato
+  if (toolName === 'list_interventi') {
+    if (!body.num) body.num = 50;
+    const hasFilter = body.data_da || body.data_a || body.id_cliente || body.addetto_uid || body.id_commessa || body.id_stato || body.years;
+    if (!hasFilter) {
+      const now = new Date();
+      const from = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+      body.data_da = from.toISOString().split('T')[0];
+      body.data_a  = now.toISOString().split('T')[0];
+    }
+  }
+
   // search_prodotti: rinomina query → find, default num
   if (toolName === 'search_prodotti') {
     if (body.query) { body.find = body.query; delete body.query; }

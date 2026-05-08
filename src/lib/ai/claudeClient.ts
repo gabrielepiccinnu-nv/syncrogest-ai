@@ -160,8 +160,11 @@ function buildHumanSummary(
       'Recuperare le informazioni aziendali',
     assign_staff_to_intervento: (i) =>
       `Assegnare il tecnico ID ${i.id_utente} all'intervento #${i.id_intervento}`,
-    add_activity_to_intervento: (i) =>
-      `Aggiungere ${i.ore}h di attività all'intervento #${i.id_intervento}`,
+    add_activity_to_intervento: (i) => {
+      const h = Number(i.ore ?? 0), m = Number(i.minuti ?? 0);
+      const durStr = m > 0 ? `${h}h ${m}min` : `${h}h`;
+      return `Aggiungere attività "${i.titolo ?? 'Lavoro'}" (${durStr}) all'intervento #${i.intervento_id} il ${i.data} dalle ${i.dalle_ore}`;
+    },
     add_product_to_intervento: (i) =>
       `Aggiungere il prodotto ID ${i.id_prodotto} (x${i.quantita}) all'intervento #${i.id_intervento}`,
     send_email_intervento: (i) =>

@@ -147,7 +147,7 @@ export const SYNCROGEST_TOOLS: CacheableTool[] = [
   {
     name: 'list_interventi',
     description:
-      'Lista gli interventi (ordini di lavoro) con filtri. Usare per "mostra interventi", "interventi di questa settimana", "ordini aperti", "ore di un tecnico".',
+      'Lista gli interventi (ordini di lavoro) con filtri. Usare per "mostra interventi", "interventi di questa settimana", "ordini aperti", "ore di un tecnico", "interventi su una commessa".',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -158,6 +158,7 @@ export const SYNCROGEST_TOOLS: CacheableTool[] = [
         id_cliente: { type: 'number' },
         id_stato: { type: 'number' },
         addetto_uid: { type: 'number', description: 'Filtra per ID tecnico/addetto assegnato' },
+        id_commessa: { type: 'number', description: 'Filtra per ID commessa/progetto' },
         years: { type: 'string', description: 'Anni da cercare es. "2025,2024"' },
       },
       required: [],
@@ -242,18 +243,21 @@ export const SYNCROGEST_TOOLS: CacheableTool[] = [
   },
   {
     name: 'add_activity_to_intervento',
-    description: 'Aggiunge un\'attività (ore di lavoro) a un intervento.',
+    description: 'Aggiunge un\'attività (ore di lavoro svolto) a un intervento. Richiede l\'ID del tecnico incaricato (usare get_staff_list se non noto).',
     input_schema: {
       type: 'object' as const,
       properties: {
-        id_intervento: { type: 'number' },
-        id_attivita: { type: 'number', description: 'ID tipo attività' },
-        ore: { type: 'number', description: 'Ore lavorate' },
-        minuti: { type: 'number', description: 'Minuti aggiuntivi' },
-        descrizione: { type: 'string' },
-        data: { type: 'string', description: 'dd/MM/yyyy' },
+        intervento_id: { type: 'number', description: 'ID intervento' },
+        titolo: { type: 'string', description: 'Titolo/tipo attività es. "Lavoro", "Consulenza", "Trasferta", "Installazione"' },
+        data: { type: 'string', description: 'Data in formato dd/MM/yyyy' },
+        dalle_ore: { type: 'string', description: 'Ora inizio HH:MM es. "09:00"' },
+        alle_ore: { type: 'string', description: 'Ora fine HH:MM es. "11:30" (opzionale)' },
+        ore: { type: 'number', description: 'Ore lavorate (intero es. 2)' },
+        minuti: { type: 'number', description: 'Minuti aggiuntivi es. 30 (opzionale, default 0)' },
+        incaricato_id: { type: 'number', description: 'ID tecnico incaricato (da get_staff_list)' },
+        descrizione: { type: 'string', description: 'Descrizione opzionale del lavoro svolto' },
       },
-      required: ['id_intervento', 'id_attivita', 'ore', 'data'],
+      required: ['intervento_id', 'titolo', 'data', 'dalle_ore', 'ore', 'incaricato_id'],
     },
   },
   {
