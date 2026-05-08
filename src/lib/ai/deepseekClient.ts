@@ -8,7 +8,7 @@ import type { InterpretResult, ExecutedStep } from './claudeClient';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 const MAX_AUTO_STEPS = 10;
-const TOOL_RESULT_MAX_CHARS = 8000;
+const TOOL_RESULT_MAX_CHARS = 12000;
 
 type OpenAIMessage =
   | { role: 'system'; content: string }

@@ -1,7 +1,16 @@
 import { SyncrogestClient } from './client';
 import { getAuthToken } from './auth';
+import { getCached, setCached } from './cache';
+import { trimResponse } from './trimmer';
 import type { SyncrogestToolName } from '../types/tools';
 import { READ_TOOLS } from '../ai/readTools';
+
+const TTL_60MIN = 60 * 60 * 1000;
+const CACHED_TOOLS = new Set<SyncrogestToolName>([
+  'get_staff_list', 'get_ticket_states', 'get_ticket_priorities', 'get_ticket_categories',
+  'get_intervento_states', 'get_intervento_categories', 'get_stati_preventivi',
+  'get_tipologie_evento_crm',
+]);
 
 const ENDPOINT_MAP: Partial<Record<SyncrogestToolName, string>> = {
   // ws_common
@@ -73,6 +82,178 @@ export async function executeTool(
 ): Promise<unknown> {
   const token = await getAuthToken();
   const client = new SyncrogestClient();
+
+  // --- Cache lookup per tool statici ---
+  if (CACHED_TOOLS.has(toolName)) {
+    const cached = getCached(toolName);
+    if (cached !== null) return cached;
+  }
+
+  // --- Aggregazioni server-side (bypassano ENDPOINT_MAP) ---
+
+  if (toolName === 'get_scheda_cliente') {
+    const id = Number(toolInput.cliente_id);
+    const now = new Date();
+    const da = new Date(now.getFullYear(), now.getMonth() - 12, now.getDate()).toISOString().split('T')[0];
+    const a  = now.toISOString().split('T')[0];
+    const [contatti, interventi, commesse, preventivi, opportunita] = await Promise.all([
+      client.post<Record<string,unknown>>('ws_contatti/contatti',        { token_uid: token, anagrafica_id: id }),
+      client.post<Record<string,unknown>>('ws_interventi/interventi',    { token_uid: token, id_cliente: id, num: 8, data_da: da, data_a: a }),
+      client.post<Record<string,unknown>>('ws_commesse/commesse',        { token_uid: token, cliente_id: id, solo_attive: 1 }),
+      client.post<Record<string,unknown>>('ws_preventivi/preventivi',    { token_uid: token, cliente_id: id, num: 6 }),
+      client.post<Record<string,unknown>>('ws_opportunita/opportunities',{ token_uid: token, cliente_id: id }),
+    ]);
+    return {
+      contatti: ((contatti as {data?:{contatti?:Record<string,unknown>[]}}).data?.contatti ?? []).slice(0,5).map((c) => ({
+        nome: `${c.contatto_nome ?? ''} ${c.contatto_cognome ?? ''}`.trim(),
+        email: c.contatto_email, tel: c.contatto_telefono, ruolo: c.contatto_ruolo,
+      })),
+      interventi_recenti: ((interventi as {data?:{interventi?:Record<string,unknown>[]}}).data?.interventi ?? []).slice(0,6).map((iv) => ({
+        id: iv.intervento_id, data: iv.intervento_data,
+        descrizione: iv.intervento_descrizione_clean, stato: iv.intervento_stato_nome,
+        tecnico: `${iv.incaricato_nome ?? ''} ${iv.incaricato_cognome ?? ''}`.trim(),
+        ore: iv.intervento_durata,
+      })),
+      commesse_attive: ((commesse as {data?:{commesse?:Record<string,unknown>[]}}).data?.commesse ?? []).map((c) => ({
+        id: c.commessa_id, titolo: c.commessa_titolo, stato: c.commessa_stato_nome,
+      })),
+      preventivi_recenti: ((preventivi as {data?:{preventivi?:Record<string,unknown>[]}}).data?.preventivi ?? []).slice(0,5).map((p) => ({
+        numero: p.fattura_numero, oggetto: p.fattura_oggetto,
+        totale: p.fattura_totale_iva, stato: p.stato_nome, data: p.fattura_data,
+      })),
+      trattative_aperte: ((opportunita as {data?:{opportunita?:Record<string,unknown>[]}}).data?.opportunita ?? []).map((o) => ({
+        id: o.opportunita_id, contatore: o.opportunita_contatore, titolo: o.opportunita_titolo,
+      })),
+    };
+  }
+
+  if (toolName === 'get_report_periodo') {
+    const { data_da, data_a } = toolInput as { data_da: string; data_a: string };
+    const resp = await client.post<Record<string,unknown>>('ws_interventi/interventi', { token_uid: token, data_da, data_a, num: 400 });
+    const lista = ((resp as {data?:{interventi?:Record<string,unknown>[]}}).data?.interventi ?? []);
+    const orePerTecnico = new Map<string, { ore: number; n: number }>();
+    const orePerCliente = new Map<string, number>();
+    let totale = 0, chiusi = 0, aperti = 0;
+    const daCompletare: Record<string,unknown>[] = [];
+    for (const iv of lista) {
+      totale++;
+      const stato = String(iv.intervento_stato_nome ?? '').toLowerCase();
+      if (stato.includes('chius') || stato.includes('complet')) { chiusi++; }
+      else {
+        aperti++;
+        if (daCompletare.length < 10) daCompletare.push({ id: iv.intervento_id, cliente: iv.anagrafica_ragione_sociale, data: iv.intervento_data, descrizione: iv.intervento_descrizione_clean });
+      }
+      const nomeT = `${iv.incaricato_nome ?? ''} ${iv.incaricato_cognome ?? ''}`.trim() || 'N/A';
+      const ore = parseFloat(String(iv.intervento_durata ?? 0)) || 0;
+      const t = orePerTecnico.get(nomeT) ?? { ore: 0, n: 0 };
+      orePerTecnico.set(nomeT, { ore: t.ore + ore, n: t.n + 1 });
+      const nomeC = String(iv.anagrafica_ragione_sociale ?? 'N/A');
+      orePerCliente.set(nomeC, (orePerCliente.get(nomeC) ?? 0) + 1);
+    }
+    return {
+      periodo: { da: data_da, a: data_a },
+      totale_interventi: totale, chiusi, aperti,
+      ore_per_tecnico: [...orePerTecnico.entries()]
+        .map(([nome, v]) => ({ nome, ore: Math.round(v.ore * 100) / 100, n_interventi: v.n }))
+        .sort((a, b) => b.ore - a.ore),
+      clienti_top: [...orePerCliente.entries()]
+        .map(([nome, n]) => ({ nome, n_interventi: n }))
+        .sort((a, b) => b.n_interventi - a.n_interventi).slice(0, 8),
+      da_completare: daCompletare,
+    };
+  }
+
+  if (toolName === 'get_pipeline_crm') {
+    const opResp = await client.post<Record<string,unknown>>('ws_opportunita/opportunities', { token_uid: token, filtro_stato: 'APERTA', num: 50 });
+    const ops = ((opResp as {data?:{opportunita?:Record<string,unknown>[]}}).data?.opportunita ?? []);
+    const eventiMap = new Map<string, Record<string,unknown> | null>();
+    await Promise.all(
+      ops.slice(0, 10).map(async (op) => {
+        try {
+          const r = await client.post<Record<string,unknown>>('ws_opportunita/eventi', { token_uid: token, opportunita_id: op.opportunita_id });
+          const eventi = ((r as {data?:{eventi?:Record<string,unknown>[]}}).data?.eventi ?? []);
+          eventiMap.set(String(op.opportunita_id), (eventi[0] as Record<string,unknown>) ?? null);
+        } catch { eventiMap.set(String(op.opportunita_id), null); }
+      })
+    );
+    const now = Date.now(), DAY = 86400000;
+    const attive: unknown[] = [], daRicontattare: unknown[] = [], inattive: unknown[] = [];
+    for (const op of ops) {
+      const ult = eventiMap.get(String(op.opportunita_id)) ?? null;
+      let giorni = 999;
+      if (ult?.evento_data) {
+        const parts = String(ult.evento_data).split('/');
+        if (parts.length === 3) giorni = Math.floor((now - new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime()) / DAY);
+      }
+      const item = {
+        contatore: op.opportunita_contatore, titolo: op.opportunita_titolo,
+        cliente: op.opportunita_cliente_nome,
+        ultimo_evento: ult ? `${ult.evento_tipologia} del ${ult.evento_data}` : 'nessuno',
+        giorni_silenzio: giorni,
+      };
+      if (giorni <= 14) attive.push(item);
+      else if (giorni <= 30) daRicontattare.push(item);
+      else inattive.push(item);
+    }
+    return { totale_aperte: ops.length, attive, da_ricontattare: daRicontattare, inattive };
+  }
+
+  if (toolName === 'get_dashboard_commessa') {
+    const id = Number(toolInput.commessa_id);
+    const [commessaResp, interventiResp] = await Promise.all([
+      client.post<Record<string,unknown>>('ws_commesse/commessa',     { token_uid: token, commessa_id: id }),
+      client.post<Record<string,unknown>>('ws_interventi/interventi', { token_uid: token, id_commessa: id, num: 20 }),
+    ]);
+    const c = ((commessaResp as {data?:{commessa?:Record<string,unknown>}}).data?.commessa ?? {});
+    const lista = ((interventiResp as {data?:{interventi?:Record<string,unknown>[]}}).data?.interventi ?? []);
+    const oreTotali  = parseFloat(String(c.commessa_ore_totali  ?? 0)) || 0;
+    const oreUsate   = parseFloat(String(c.commessa_ore_usate   ?? 0)) || 0;
+    const oreResidue = parseFloat(String(c.commessa_ore_residue ?? 0)) || 0;
+    const pct = oreTotali > 0 ? Math.round((oreUsate / oreTotali) * 100) : 0;
+    const tecnici = new Map<string, number>();
+    for (const iv of lista) {
+      const n = `${iv.incaricato_nome ?? ''} ${iv.incaricato_cognome ?? ''}`.trim();
+      if (n) tecnici.set(n, (tecnici.get(n) ?? 0) + (parseFloat(String(iv.intervento_durata ?? 0)) || 0));
+    }
+    return {
+      commessa_id: id, titolo: c.commessa_titolo, cliente: c.cliente_ragione_sociale,
+      stato: c.commessa_stato_nome,
+      ore: { totali: oreTotali, usate: oreUsate, residue: oreResidue, percentuale_avanzamento: pct },
+      tecnici: [...tecnici.entries()].map(([nome, ore]) => ({ nome, ore: Math.round(ore * 100) / 100 })),
+      interventi_recenti: lista.slice(0, 6).map((iv) => ({
+        id: iv.intervento_id, data: iv.intervento_data, stato: iv.intervento_stato_nome,
+        tecnico: `${iv.incaricato_nome ?? ''} ${iv.incaricato_cognome ?? ''}`.trim(),
+        ore: iv.intervento_durata, descrizione: iv.intervento_descrizione_clean,
+      })),
+    };
+  }
+
+  if (toolName === 'get_briefing_giorno') {
+    const data = (toolInput.data as string | undefined) ?? new Date().toISOString().split('T')[0];
+    const dataDisplay = data.split('-').reverse().join('/');
+    const [calResp, intResp, tickResp] = await Promise.all([
+      client.post<Record<string,unknown>>('ws_common/bacheca_agenda', { token_uid: token, data_inizio: data, data_fine: data }),
+      client.post<Record<string,unknown>>('ws_interventi/interventi', { token_uid: token, data_da: data, data_a: data, num: 30 }),
+      client.post<Record<string,unknown>>('ws_ticket/tickets',        { token_uid: token, id_priorita: 1, num: 10 }),
+    ]);
+    return {
+      data: dataDisplay,
+      interventi_oggi: ((intResp as {data?:{interventi?:Record<string,unknown>[]}}).data?.interventi ?? []).map((iv) => ({
+        id: iv.intervento_id, cliente: iv.anagrafica_ragione_sociale,
+        tecnico: `${iv.incaricato_nome ?? ''} ${iv.incaricato_cognome ?? ''}`.trim(),
+        dalle: iv.intervento_matt_da || iv.intervento_pome_da || '—',
+        alle:  iv.intervento_matt_a  || iv.intervento_pome_a  || '—',
+        descrizione: iv.intervento_descrizione_clean,
+      })),
+      appuntamenti_crm: ((calResp as {data?:{agenda?:unknown[]}}).data?.agenda ?? []),
+      ticket_urgenti: ((tickResp as {data?:{tickets?:Record<string,unknown>[]}}).data?.tickets ?? []).slice(0,5).map((t) => ({
+        id: t.id_ticket, titolo: t.titolo, cliente: t.cliente_ragione_sociale, data_apertura: t.data_apertura,
+      })),
+    };
+  }
+
+  // --- Fine aggregazioni ---
+
   const endpoint = ENDPOINT_MAP[toolName];
 
   const body: Record<string, unknown> = { token_uid: token, ...toolInput };
@@ -277,9 +458,9 @@ export async function executeTool(
       data_a,
       num: 400,
       offset: 0,
-    })) as { data?: { lista?: InterventoItem[] } };
+    })) as { data?: { interventi?: InterventoItem[]; lista?: InterventoItem[] } };
 
-    const lista = listResp?.data?.lista ?? [];
+    const lista = listResp?.data?.interventi ?? listResp?.data?.lista ?? [];
 
     // Filtra interventi dove il tecnico è assegnato:
     // controlla sia utenti_selected (array addetti) che intervento_uid (proprietario)
@@ -315,8 +496,8 @@ export async function executeTool(
           const attResp = (await client.post('ws_interventi/attivita_intervento', {
             token_uid: token,
             intervento_id: id,
-          })) as { data?: { lista?: AttivitaItem[] } };
-          const attLista = attResp?.data?.lista ?? [];
+          })) as { data?: { attivita_intervento?: AttivitaItem[]; lista?: AttivitaItem[] } };
+          const attLista = attResp?.data?.attivita_intervento ?? attResp?.data?.lista ?? [];
           const attFiltrate = attLista.filter(
             (a) => String(a.interventi_attivita_incaricato_id) === String(addetto_uid),
           );
@@ -400,6 +581,17 @@ export async function executeTool(
   // Dopo create_opportunita, recupera l'opportunità appena creata per esporre l'opportunita_id
   // reale (visibile nella UI Syncrogest), che è diverso da inserted_id (ID interno del DB).
   // L'AI deve usare opportunita_id dalla search per i successivi create_evento_crm.
+  // Salva in cache i tool statici dopo la prima chiamata API
+  if (CACHED_TOOLS.has(toolName)) {
+    setCached(toolName, result, TTL_60MIN);
+    return result;
+  }
+
+  // Applica trimming campi per ridurre payload verso l'AI (solo read tool)
+  if (READ_TOOLS.has(toolName)) {
+    return trimResponse(toolName, result);
+  }
+
   if (toolName === 'create_opportunita') {
     const clienteId = toolInput.opportunita_cliente_id as number;
     const titolo = toolInput.opportunita_titolo as string;

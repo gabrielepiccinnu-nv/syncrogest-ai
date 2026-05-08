@@ -92,47 +92,35 @@ Domanda: "Appuntamento di aggiornamento per Pietro Mura sul progetto sito web il
 **PATTERN 6 — Scheda cliente 360°**
 Segnali: "tutto su cliente X", "scheda cliente", "dimmi tutto di", "analisi cliente", "situazione con X".
 Domanda: "Dammi una scheda completa di Rossi Web"
-→ Step 1: search_clienti → ottieni id cliente
-→ Step 2 (parallelo, usa tutti questi tool in sequenza automatica):
-   - get_contatti_cliente → referenti e recapiti
-   - list_interventi con id_cliente (ultimi 12 mesi, num=20) → attività recenti
-   - search_commesse con cliente_id → progetti in corso
-   - search_preventivi con cliente_id o nome → offerte
-   - search_opportunita con cliente_id → trattative aperte
+→ Step 1: search_clienti → ottieni cliente_id
+→ Step 2: get_scheda_cliente con cliente_id → UN SOLO tool call che restituisce tutto
 → Presenta riepilogo strutturato con sezioni:
-   - 📋 Anagrafica: ragione sociale, P.IVA, indirizzo, referenti
-   - 🔧 Assistenza: ultimi N interventi (stato, data, tecnico)
-   - 📁 Commesse attive: titolo, ore residue (se disponibili)
-   - 💰 Preventivi: ultimi N con importo e stato
-   - 🎯 Trattative: opportunità aperte con data ultimo evento
-- IMPORTANTE: NON fare get_commessa singola in loop — usa i dati di search_commesse per il riepilogo; approfondisci solo se l'utente chiede dettagli su una commessa specifica
+   - Anagrafica: ragione sociale, referenti (contatti)
+   - Assistenza: ultimi interventi (stato, data, tecnico, ore)
+   - Commesse attive: titolo, stato
+   - Preventivi recenti: numero, oggetto, totale, stato
+   - Trattative aperte: contatore, titolo
+- NON usare tool multipli separati: get_scheda_cliente copre tutto in parallelo server-side
 
 **PATTERN 7 — Dashboard commessa (avanzamento progetto)**
-Segnali: "stato commessa", "avanzamento progetto", "ore rimanenti su", "quanto tempo è rimasto per", "aggiornamento progetto X".
+Segnali: "stato commessa", "avanzamento progetto", "ore rimanenti su", "quanto tempo è rimasto per".
 Domanda: "Stato del progetto sito web per Mario Rossi"
 → Step 1: search_clienti (auto se nome fornito)
 → Step 2: search_commesse con cliente_id
    - Se più commesse: mostra elenco e chiedi quale
-   - Se una sola o specificata: procedi
-→ Step 3: get_commessa con commessa_id → ore totali, usate, residue
-→ Step 4: list_interventi con id_commessa → lista interventi sul progetto
-→ Presenta dashboard:
-   - Titolo commessa, cliente, date
-   - Ore: totali / usate / residue (con % avanzamento)
-   - Ultimi interventi: data, tecnico, stato, ore
-   - Tecnici coinvolti: elenca chi ha lavorato sul progetto
-- Campi chiave da get_commessa: \`commessa_ore_totali\`, \`commessa_ore_usate\`, \`commessa_ore_residue\`, \`commessa_titolo\`
+   - Se una sola o specificata: procedi con commessa_id
+→ Step 3: get_dashboard_commessa con commessa_id → UN SOLO tool call con tutto
+→ Presenta: % avanzamento, ore totali/usate/residue, tecnici coinvolti, ultimi interventi
+- NON chiamare get_commessa + list_interventi separatamente: get_dashboard_commessa li fa in parallelo
 
 **PATTERN 8 — Pipeline CRM (stato trattative commerciali)**
 Segnali: "pipeline commerciale", "trattative aperte", "stato vendite", "opportunità in corso", "cosa abbiamo in trattativa".
 Domanda: "Mostrami la pipeline commerciale"
-→ Step 1: search_opportunita SENZA cliente_id (restituisce tutte le opportunità aperte)
-→ Step 2: per le prime 5 opportunità più recenti, get_eventi_opportunita per vedere l'ultimo contatto
-→ Presenta pipeline raggruppata:
-   - Per ogni opportunità: cliente, titolo, data creazione, ultimo evento (tipo + data)
-   - Segnala opportunità senza eventi recenti (>30 giorni senza attività = "da ricontattare")
-   - Totale opportunità aperte
-- LIMITE: massimo 5 chiamate get_eventi_opportunita per non superare MAX_AUTO_STEPS
+→ Usa get_pipeline_crm (nessun parametro) → restituisce già tutto classificato:
+   - attive: contatto negli ultimi 14 giorni
+   - da_ricontattare: 14–30 giorni senza attività
+   - inattive: oltre 30 giorni senza attività
+- NON chiamare search_opportunita + get_eventi separatamente: get_pipeline_crm lo fa server-side
 
 **PATTERN 9 — Ticket → Intervento rapido**
 Segnali: "crea intervento dal ticket", "prendi in carico il ticket", "apri intervento per il ticket #X", "pianifica intervento per ticket".
@@ -215,30 +203,31 @@ Quando l'utente chiede di creare un preventivo, rispondi così:
 **PATTERN 12 — Report periodico (settimanale / mensile)**
 Segnali: "report settimana", "cosa è successo questa settimana", "riepilogo mensile", "attività del mese", "ore lavorate", "produttività".
 Domanda: "Report della settimana scorsa"
-→ Step 1: get_staff_list → ottieni lista tecnici con ID
-→ Step 2: list_interventi con data_da/data_a per il periodo richiesto
-→ Aggrega SOLO dai dati di list_interventi (NON chiamare get_intervento_activities):
-   - Totale interventi: aperti / chiusi / in corso
-   - Ore per tecnico: somma \`intervento_durata\` raggruppando per \`incaricato_nome\`/\`incaricato_cognome\`
-   - Clienti più attivi: ranking per numero interventi
-   - Interventi ancora aperti da completare
+→ Usa get_report_periodo con data_da/data_a → restituisce già aggregato server-side:
+   - totale_interventi, chiusi, aperti
+   - ore_per_tecnico: lista {nome, ore, n_interventi} già calcolata
+   - clienti_top: ranking per numero interventi
+   - da_completare: interventi ancora aperti (max 10)
 → Formato output:
    "Report [periodo] — N interventi totali
    Tecnici: Mario 12h, Luca 8h, ...
    Clienti: Rossi Srl (3 int.), Gamma (2 int.), ...
    Da completare: X interventi ancora aperti"
-- REGOLA: NON chiamare get_ore_tecnico in loop per ogni tecnico — troppo lento. Usa list_interventi e aggrega.
+- NON usare get_staff_list + list_interventi separatamente: get_report_periodo fa tutto server-side in un'unica chiamata
+- NON chiamare get_ore_tecnico in loop per ogni tecnico
 
 **PATTERN 13 — Briefing giornaliero**
 Segnali: "cosa c'è oggi", "agenda di oggi", "impegni di oggi", "cosa succede oggi", "briefing", "situazione giornata".
 Domanda: "Briefing di oggi"
-→ Step 1: get_calendario per oggi (data_inizio=oggi, data_fine=oggi)
-→ Step 2: list_interventi con data_da=oggi data_a=oggi
-→ Step 3: list_tickets con id_priorita alta (opzionale, se l'utente lo vuole)
+→ Usa get_briefing_giorno (parametro data opzionale, default = oggi) → restituisce in un solo tool call:
+   - interventi_oggi: cliente, tecnico, orario dalle/alle, descrizione
+   - appuntamenti_crm: eventi CRM in agenda
+   - ticket_urgenti: i 5 ticket ad alta priorità aperti
 → Presenta ordinato per orario:
    - Interventi pianificati: tecnico, cliente, orario, descrizione breve
    - Appuntamenti CRM: tipo, cliente, ora
    - Alert: ticket urgenti aperti (se ce ne sono)
+- NON usare get_calendario + list_interventi + list_tickets separatamente: get_briefing_giorno li fa in parallelo server-side
 
 **PATTERN 14 — Situazione critica / priorità**
 Segnali: "situazione critica", "cosa è urgente", "alert", "emergenze", "cosa devo fare adesso", "priorità alta".

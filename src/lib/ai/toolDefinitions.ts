@@ -590,5 +590,66 @@ export const SYNCROGEST_TOOLS: CacheableTool[] = [
     input_schema: { type: 'object' as const, properties: {}, required: [] },
     cache_control: { type: 'ephemeral' },
   },
+
+  // aggregazioni server-side — 1 tool call sostituisce N chiamate sequenziali
+  {
+    name: 'get_scheda_cliente',
+    description:
+      'Scheda cliente 360°: anagrafica, contatti, ultimi interventi, commesse attive, preventivi recenti, trattative aperte. Usare per "tutto su cliente X", "scheda cliente", "analisi cliente", "dimmi tutto di". Richiede solo l\'ID cliente (da search_clienti).',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        cliente_id: { type: 'number', description: 'ID numerico del cliente' },
+      },
+      required: ['cliente_id'],
+    },
+  },
+  {
+    name: 'get_report_periodo',
+    description:
+      'Report aggregato interventi per periodo: totali, ore per tecnico, clienti più attivi, interventi da completare. Usare per "report settimana/mese", "ore lavorate nel periodo", "riepilogo attività", "produttività tecnici".',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        data_da: { type: 'string', description: 'Data inizio yyyy-mm-dd' },
+        data_a:  { type: 'string', description: 'Data fine yyyy-mm-dd' },
+      },
+      required: ['data_da', 'data_a'],
+    },
+  },
+  {
+    name: 'get_pipeline_crm',
+    description:
+      'Pipeline commerciale completa: tutte le opportunità aperte classificate in attive (contatto <14gg), da ricontattare (14–30gg) e inattive (>30gg). Usare per "pipeline", "trattative aperte", "stato vendite", "opportunità commerciali".',
+    input_schema: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'get_dashboard_commessa',
+    description:
+      'Dashboard avanzamento commessa: ore totali/usate/residue con percentuale, tecnici coinvolti, ultimi interventi sul progetto. Usare per "stato commessa", "avanzamento progetto", "ore rimanenti su", "quanto tempo è rimasto".',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        commessa_id: { type: 'number', description: 'ID commessa (da search_commesse)' },
+      },
+      required: ['commessa_id'],
+    },
+  },
+  {
+    name: 'get_briefing_giorno',
+    description:
+      'Briefing giornaliero: interventi pianificati, appuntamenti CRM e ticket urgenti per una data. Usare per "cosa c\'è oggi", "agenda di oggi", "briefing", "impegni di oggi", "situazione giornata".',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        data: { type: 'string', description: 'Data yyyy-mm-dd (default: oggi se omessa)' },
+      },
+      required: [],
+    },
+  },
 ];
 

@@ -11,7 +11,7 @@ const client = new Anthropic({
 });
 
 const MAX_AUTO_STEPS = 10;
-const TOOL_RESULT_MAX_CHARS = 8000;
+const TOOL_RESULT_MAX_CHARS = 12000;
 
 export interface ExecutedStep {
   toolName: SyncrogestToolName;
@@ -223,6 +223,16 @@ function buildHumanSummary(
       `Recuperare i dettagli dell'impianto #${i.impianto_id}`,
     get_tipologie_evento_crm: () =>
       'Recuperare le tipologie di evento CRM disponibili',
+    get_scheda_cliente: (i) =>
+      `Recuperare scheda completa 360° del cliente ID ${i.cliente_id}`,
+    get_report_periodo: (i) =>
+      `Generare report aggregato dal ${i.data_da} al ${i.data_a}`,
+    get_pipeline_crm: () =>
+      'Recuperare pipeline commerciale completa con tutte le trattative aperte',
+    get_dashboard_commessa: (i) =>
+      `Recuperare dashboard avanzamento commessa #${i.commessa_id}`,
+    get_briefing_giorno: (i) =>
+      `Recuperare briefing giornaliero per il ${i.data ?? 'oggi'}`,
     create_preventivo: (i) => {
       const righe = Array.isArray(i.righe)
         ? (i.righe as { riga_dett_desc: string; riga_dett_importo: number; riga_dett_qta?: number }[])

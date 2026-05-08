@@ -56,7 +56,13 @@ export type SyncrogestToolName =
   | 'list_impianti'
   | 'get_impianto'
   // ws_opportunita extra
-  | 'get_tipologie_evento_crm';
+  | 'get_tipologie_evento_crm'
+  // aggregazioni server-side ottimizzate (1 chiamata → N API Syncrogest in parallelo)
+  | 'get_scheda_cliente'
+  | 'get_report_periodo'
+  | 'get_pipeline_crm'
+  | 'get_dashboard_commessa'
+  | 'get_briefing_giorno';
 
 export interface ToolCallResult {
   toolName: SyncrogestToolName;

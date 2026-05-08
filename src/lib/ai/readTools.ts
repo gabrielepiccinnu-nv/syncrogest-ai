@@ -16,4 +16,10 @@ export const READ_TOOLS = new Set<SyncrogestToolName>([
   'get_contatti_cliente',
   'list_impianti', 'get_impianto',
   'get_tipologie_evento_crm',
+  // aggregazioni server-side
+  'get_scheda_cliente',
+  'get_report_periodo',
+  'get_pipeline_crm',
+  'get_dashboard_commessa',
+  'get_briefing_giorno',
 ]);
