@@ -433,115 +433,58 @@ export async function executeTool(
     }
   }
 
-  // get_ore_tecnico: aggrega le ore del tecnico nel periodo richiesto
+  // get_ore_tecnico: aggrega le ore del tecnico nel periodo usando intervento_durata
   if (toolName === 'get_ore_tecnico') {
     const { addetto_uid, data_da, data_a } = toolInput as { addetto_uid: number; data_da: string; data_a: string };
 
-    type AttivitaItem = {
-      interventi_attivita_incaricato_id?: unknown;
-      interventi_attivita_diff_ore?: unknown;
-      interventi_attivita_data?: unknown;
-    };
     type InterventoItem = {
       intervento_id?: unknown;
       intervento_data?: unknown;
+      intervento_durata?: unknown;
+      intervento_stato_nome?: unknown;
       anagrafica_ragione_sociale?: unknown;
       intervento_uid?: unknown;
       utenti_selected?: unknown[];
-      intervento_attivita?: { lista?: AttivitaItem[] };
     };
 
-    // Recupera tutti gli interventi del periodo (senza filtro utente per massima compatibilità)
     const listResp = (await client.post('ws_interventi/interventi', {
       token_uid: token,
       data_da,
       data_a,
       num: 400,
       offset: 0,
-    })) as { data?: { interventi?: InterventoItem[]; lista?: InterventoItem[] } };
+    })) as { data?: { interventi?: InterventoItem[] } };
 
-    const lista = listResp?.data?.interventi ?? listResp?.data?.lista ?? [];
+    const lista = listResp?.data?.interventi ?? [];
 
-    // Filtra interventi dove il tecnico è assegnato:
-    // controlla sia utenti_selected (array addetti) che intervento_uid (proprietario)
+    // Filtra interventi assegnati al tecnico (proprietario o addetto)
+    const uidStr = String(addetto_uid);
     const interventiTecnico = lista.filter((iv) => {
-      const uidStr = String(addetto_uid);
       if (String(iv.intervento_uid) === uidStr) return true;
       const sel = iv.utenti_selected ?? [];
       return sel.some((uid) => String(uid) === uidStr);
     });
 
-    let totalOre = 0;
-    const dettaglio: Array<{ id: number; data: string; ore: number; cliente: string; fonte: string }> = [];
+    let totaleOre = 0;
+    const dettaglio: Array<{ id: number; data: string; ore: number; cliente: string; stato: string }> = [];
 
-    for (const intervento of interventiTecnico) {
-      const id = Number(intervento.intervento_id);
-      let oreIntervento = 0;
-      let fonte = 'attivita';
-
-      // Tenta attività embedded
-      const embeddedLista = intervento.intervento_attivita?.lista ?? [];
-      const attivitaTecnico = embeddedLista.filter(
-        (a) => String(a.interventi_attivita_incaricato_id) === String(addetto_uid),
-      );
-
-      if (attivitaTecnico.length > 0) {
-        for (const att of attivitaTecnico) {
-          const ore = parseFloat(String(att.interventi_attivita_diff_ore ?? 0));
-          if (!isNaN(ore)) oreIntervento += ore;
-        }
-      } else {
-        // Fallback: chiama attivita_intervento separatamente
-        try {
-          const attResp = (await client.post('ws_interventi/attivita_intervento', {
-            token_uid: token,
-            intervento_id: id,
-          })) as { data?: { attivita_intervento?: AttivitaItem[]; lista?: AttivitaItem[] } };
-          const attLista = attResp?.data?.attivita_intervento ?? attResp?.data?.lista ?? [];
-          const attFiltrate = attLista.filter(
-            (a) => String(a.interventi_attivita_incaricato_id) === String(addetto_uid),
-          );
-          for (const att of attFiltrate) {
-            const ore = parseFloat(String(att.interventi_attivita_diff_ore ?? 0));
-            if (!isNaN(ore)) oreIntervento += ore;
-          }
-          fonte = attFiltrate.length > 0 ? 'attivita_esplicita' : 'nessuna_attivita';
-        } catch {
-          fonte = 'errore_attivita';
-        }
-      }
-
-      if (oreIntervento > 0) {
-        totalOre += oreIntervento;
-        dettaglio.push({
-          id,
-          data: String(intervento.intervento_data ?? ''),
-          ore: Math.round(oreIntervento * 100) / 100,
-          cliente: String(intervento.anagrafica_ragione_sociale ?? ''),
-          fonte,
-        });
-      }
+    for (const iv of interventiTecnico) {
+      const ore = parseFloat(String(iv.intervento_durata ?? 0)) || 0;
+      totaleOre += ore;
+      dettaglio.push({
+        id: Number(iv.intervento_id),
+        data: String(iv.intervento_data ?? ''),
+        ore: Math.round(ore * 100) / 100,
+        cliente: String(iv.anagrafica_ragione_sociale ?? ''),
+        stato: String(iv.intervento_stato_nome ?? ''),
+      });
     }
 
     return {
-      totale_ore: Math.round(totalOre * 100) / 100,
-      numero_interventi_assegnati: interventiTecnico.length,
-      numero_interventi_con_ore: dettaglio.length,
+      totale_ore: Math.round(totaleOre * 100) / 100,
+      numero_interventi: interventiTecnico.length,
       periodo: { da: data_da, a: data_a },
       dettaglio,
-      // debug: per diagnostica, primi 3 interventi raw con campi chiave
-      _debug: {
-        totale_interventi_nel_periodo: lista.length,
-        interventi_assegnati_al_tecnico: interventiTecnico.length,
-        esempio_primo_intervento: lista[0]
-          ? {
-              id: lista[0].intervento_id,
-              uid: lista[0].intervento_uid,
-              utenti_selected: lista[0].utenti_selected,
-              ha_attivita_embedded: (lista[0].intervento_attivita?.lista?.length ?? 0) > 0,
-            }
-          : null,
-      },
     };
   }
 

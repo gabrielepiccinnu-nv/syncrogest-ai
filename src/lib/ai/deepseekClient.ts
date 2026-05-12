@@ -110,11 +110,14 @@ export async function interpretWithDeepSeek(
     const result = await executeTool(toolName, toolInput);
     executedSteps.push({ toolName, toolInput, result });
 
-    // Feed result back (OpenAI agentic format)
+    // Feed result back (OpenAI agentic format).
+    // Use only [call] — not message.tool_calls — because DeepSeek requires a tool
+    // message for every tool_call_id in the assistant turn. If the model returned
+    // multiple tool calls we only execute one, so we must not include the others.
     messages.push({
       role: 'assistant',
       content: message.content ?? null,
-      tool_calls: message.tool_calls,
+      tool_calls: [call],
     });
     messages.push({
       role: 'tool',
